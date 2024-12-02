@@ -1,0 +1,107 @@
+name: Flutter CI/CD
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Jobs that will be executed
+jobs:
+  # First job: Code Analysis and Testing
+  analyze_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the code
+      - uses: actions/checkout@v4
+
+      # Setup Java (required for Flutter)
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # Setup Flutter
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+
+      # Get dependencies
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          flutter pub upgrade
+
+      # Run code analysis
+      - name: Analyze code
+        run: dart analyze
+
+      # Run unit tests
+      - name: Run unit tests
+        run: flutter test test/
+
+      # Run widget tests
+      - name: Run widget tests
+        run: flutter test test/widget/
+
+  # Second job: Build for different platforms
+  build:
+    needs: analyze_and_test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Setup Java
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # Setup Flutter
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+
+      # Build Android APK
+      - name: Build Android APK
+        run: |
+          flutter build apk --release
+          flutter build appbundle
+
+      # Build Web
+      - name: Build Web
+        run: flutter build web
+
+      # Optional: Upload artifacts
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      # Optional: Upload Web Build
+      - name: Upload Web Build
+        uses: actions/upload-artifact@v3
+        with:
+          name: web-release
+          path: build/web
+
+  # Optional: Deployment job (customize as needed)
+  # deploy:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Deploy to Firebase Hosting
+  #       uses: FirebaseExtended/action-hosting-deploy@v0
+  #       with:
+  #         repoToken: '${{ secrets.GITHUB_TOKEN }}'
+  #         firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+  #         channelId: live
+  #         projectId: your-project-id
